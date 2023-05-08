@@ -1,11 +1,13 @@
 "use client";
-import { useState, useEffect } from "react";
-import { getFirestore, doc, getDoc, updateDoc } from "firebase/firestore";
-import { useAuthContext } from "../src/context/AuthContext";
+import { useState } from "react";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import addData from "../src/firebase/firestore/addData";
 import ImageUpload from "./ImageUpload";
+import { useAuthContext } from "../src/context/AuthContext";
 
 export default function ProfileForm() {
   const { user } = useAuthContext();
+
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [gender, setGender] = useState("");
@@ -13,56 +15,80 @@ export default function ProfileForm() {
   const [profileImage, setProfileImage] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    // Fetch user data from Firestore when the component mounts
-    const fetchUserData = async () => {
-      const firestore = getFirestore();
-      const userDocRef = doc(firestore, "users", user.uid);
-
-      try {
-        const userDocSnapshot = await getDoc(userDocRef);
-        if (userDocSnapshot.exists()) {
-          const userData = userDocSnapshot.data();
-          setUsername(userData.username || "");
-          setDisplayName(userData.displayName || "");
-          setGender(userData.gender || "");
-          setInstagramURL(userData.instagramURL || "");
-        }
-      } catch (error) {
-        console.log("Error fetching user data:", error);
-      }
-    };
-
-    if (user) {
-      fetchUserData();
-    }
-  }, [user]);
+  const storage = getStorage();
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
 
-    // Prepare the updated data object
-    const updatedData = {
+    // Prepare the data object
+    const data = {
       username,
       displayName,
       gender,
       instagramURL,
+      profileImage: "", // Placeholder for the profile image URL
     };
 
-    setIsLoading(true);
+    // Upload the profile image to Firebase Storage
+    if (profileImage) {
+      setIsLoading(true);
 
-    const firestore = getFirestore();
-    const userDocRef = doc(firestore, "users", user.uid);
+      const storageRef = ref(
+        storage,
+        `profileImages/${username}-${profileImage.name}`
+      );
+      const uploadTask = uploadBytes(storageRef, profileImage);
 
-    try {
-      // Update the user document in Firestore
-      await updateDoc(userDocRef, updatedData);
-      console.log("User data updated successfully.");
-    } catch (error) {
-      console.log("Error updating user data:", error);
+      uploadTask.on(
+        "state_changed",
+        () => {
+          // Upload progress logic (if needed)
+        },
+        (error) => {
+          console.log("Error uploading profile image:", error);
+          setIsLoading(false);
+        },
+        () => {
+          getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+            // Update the data object with the profile image URL
+            data.profileImage = downloadURL;
+
+            // Example usage of addData function:
+            addData("users", user.uid, data)
+              .then(() => {
+                console.log("Data successfully added to Firestore.");
+
+                // Reset form fields
+                setUsername("");
+                setDisplayName("");
+                setGender("");
+                setInstagramURL("");
+                setProfileImage(null);
+              })
+              .catch((error) => {
+                console.log("Error adding data to Firestore:", error);
+                setIsLoading(false);
+              });
+          });
+        }
+      );
+    } else {
+      // Call the addData function to update Firestore
+      addData("users", user.uid, data)
+        .then(() => {
+          console.log("Data successfully added to Firestore.");
+
+          // Reset form fields
+          setUsername("");
+          setDisplayName("");
+          setGender("");
+          setInstagramURL("");
+          setProfileImage(null);
+        })
+        .catch((error) => {
+          console.log("Error adding data to Firestore:", error);
+        });
     }
-
-    setIsLoading(false);
   };
 
   const handleImageChange = (file) => {
@@ -71,7 +97,7 @@ export default function ProfileForm() {
 
   return (
     <div>
-      <h2>Edit Profile</h2>
+      <h1>Create Profile</h1>
       <form onSubmit={handleFormSubmit}>
         <label htmlFor="username">Username:</label>
         <input
@@ -110,11 +136,8 @@ export default function ProfileForm() {
           value={instagramURL}
           onChange={(e) => setInstagramURL(e.target.value)}
         />
-
         <ImageUpload handleImageChange={handleImageChange} />
-        <button type="submit" disabled={isLoading}>
-          {isLoading ? "Saving..." : "Save Changes"}
-        </button>
+        <button type="submit">Create Profile</button>
       </form>
     </div>
   );

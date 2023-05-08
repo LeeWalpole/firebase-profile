@@ -28,7 +28,17 @@ export const AuthContextProvider = ({ children }) => {
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        setUser(user);
+        // Extract the desired fields from the user object
+        const { email, uid, username, photoURL, displayName } = user;
+
+        // Set the user data with the extracted fields
+        setUser({
+          email,
+          uid,
+          username: username, // Use 'displayName' as the username field
+          profileImage: photoURL,
+          displayName: displayName,
+        });
       } else {
         setUser(null);
       }
