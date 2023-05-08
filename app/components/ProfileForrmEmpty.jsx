@@ -1,10 +1,13 @@
 "use client";
 import { useState } from "react";
-import { getStorage, ref, uploadBytes } from "firebase/storage";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import addData from "../src/firebase/firestore/addData";
 import ImageUpload from "./ImageUpload";
+import { useAuthContext } from "../src/context/AuthContext";
 
 export default function ProfileForm() {
+  const { user } = useAuthContext();
+
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [gender, setGender] = useState("");
@@ -50,11 +53,10 @@ export default function ProfileForm() {
             // Update the data object with the profile image URL
             data.profileImage = downloadURL;
 
-            // Call the addData function to update Firestore
-            addData("users", "user-id", data)
+            // Example usage of addData function:
+            addData("users", user.uid, data)
               .then(() => {
                 console.log("Data successfully added to Firestore.");
-                setIsLoading(false);
 
                 // Reset form fields
                 setUsername("");
@@ -72,7 +74,7 @@ export default function ProfileForm() {
       );
     } else {
       // Call the addData function to update Firestore
-      addData("users", "user-id", data)
+      addData("users", user.uid, data)
         .then(() => {
           console.log("Data successfully added to Firestore.");
 
@@ -134,9 +136,7 @@ export default function ProfileForm() {
           value={instagramURL}
           onChange={(e) => setInstagramURL(e.target.value)}
         />
-
         <ImageUpload handleImageChange={handleImageChange} />
-
         <button type="submit">Create Profile</button>
       </form>
     </div>
